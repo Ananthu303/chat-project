@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Users | Chat App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #0f0f1e;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #1f1f2e;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+            background: linear-gradient(90deg, #ee7752, #e73c7e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-list {
+            list-style: none;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #2a2a3e;
+            padding: 12px 20px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            transition: 0.2s;
+        }
+
+        .user-item:hover {
+            background: #3a3a5e;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #555;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 16px;
+            color: #fff;
+        }
+
+        .username {
+            font-size: 16px;
+        }
+
+        .user-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .online {
+            background: #00c851;
+            color: #fff;
+        }
+
+        .offline {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .chat-btn {
+            background: #e73c7e;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #fff;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+
+        .chat-btn:hover {
+            background: #ee7752;
+        }
+
+        .logout-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .logout-link a {
+            color: #e73c7e;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .logout-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Users</h1>
+
+        <ul class="user-list">
+            {% for user in users %}
+            <li class="user-item">
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <div class="username">{{ user.username }}</div>
+                </div>
+                <div class="user-actions">
+                    <span id="status-{{ user.uid }}"
+                        class="status {% if user.is_online %}online{% else %}offline{% endif %}">
+                        {% if user.is_online %}Online{% else %}Offline{% endif %}
+                    </span>
+                    <a href="{% url 'chat' user.uid %}">
+                        <button class="chat-btn"><i class="fas fa-comment"></i> Chat</button>
+                    </a>
+                </div>
+            </li>
+            {% empty %}
+            <li>No users found.</li>
+            {% endfor %}
+        </ul>
+
+        <div class="logout-link">
+            <a href="{% url 'logout' %}">Logout</a>
+        </div>
+    </div>
+
+</body>
+<script>
+    const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const userStatusSocket = new WebSocket(
+        ws_scheme + "://" + window.location.hostname + ":8001/ws/users/"
+    );
+
+    userStatusSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        const uid = data.uid;
+        const isOnline = data.is_online;
+
+        const statusBadge = document.querySelector(`#status-${uid}`);
+        if (statusBadge) {
+            statusBadge.textContent = isOnline ? "Online" : "Offline";
+            statusBadge.classList.toggle("online", isOnline);
+            statusBadge.classList.toggle("offline", !isOnline);
+        }
+    };
+</script>
+
+</html>

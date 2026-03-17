@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Chat with {{ other_user.username }} | Chat App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: #0f0f1e;
+            color: #fff;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 30px auto;
+            background: #1f1f2e;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chat-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        #unread-badge {
+            display: none;
+            background: #e73c7e;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .messages {
+            max-height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .message-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .message-wrapper.sent {
+            justify-content: flex-end;
+        }
+
+        .message-wrapper.received {
+            justify-content: flex-start;
+        }
+
+        .message {
+            padding: 10px 15px;
+            border-radius: 12px;
+            max-width: 70%;
+            word-break: break-word;
+            position: relative;
+        }
+
+        .sent .message {
+            background: #e73c7e;
+        }
+
+        .received .message {
+            background: #555;
+        }
+
+        .msg-timestamp {
+            display: block;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .check-status {
+            font-size: 12px;
+            color: #fff;
+            margin-left: 5px;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.35);
+            cursor: pointer;
+            font-size: 13px;
+            padding: 4px;
+            border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .message-wrapper.sent:hover .delete-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .delete-btn:hover {
+            color: #e73c7e;
+            background: rgba(231, 60, 126, 0.12);
+        }
+
+        #typing-indicator {
+            min-height: 24px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+            margin-bottom: 10px;
+            padding-left: 4px;
+            transition: opacity 0.2s;
+        }
+
+        #typing-indicator.hidden {
+            opacity: 0;
+        }
+
+        form {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+        }
+
+        button[type="submit"] {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 12px;
+            background: #ee7752;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="chat-header">
+            <h2>Chat with {{ other_user.username }}</h2>
+            <span id="unread-badge">0</span>
+        </div>
+
+        <div class="messages" id="messages"></div>
+
+        <div id="typing-indicator" class="hidden"></div>
+
+        <form id="chat-form">
+            <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+            <button type="submit" id="send-btn"><i class="fas fa-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <script>
+        const MY_UID = "{{ request.user.uid }}";
+        const OTHER_UID = "{{ other_user.uid }}";
+        const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
+        const chatSocket = new WebSocket(`${ws_scheme}://${window.location.hostname}:8001/ws/chat/${OTHER_UID}/`);
+
+        const messagesDiv = document.getElementById("messages");
+        const inputField = document.getElementById("chat-input");
+        const form = document.getElementById("chat-form");
+        const unreadBadge = document.getElementById("unread-badge");
+        const sendBtn = document.getElementById("send-btn");
+
+        // Disable initially
+        sendBtn.disabled = true;
+
+        // Input listener
+        inputField.addEventListener("input", () => {
+            const hasText = inputField.value.trim().length > 0;
+            sendBtn.disabled = !hasText;
+        });
+
+        // Send messages
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const message = inputField.value.trim();
+            if (!message) return;
+
+            chatSocket.send(JSON.stringify({ message }));
+            inputField.value = "";
+
+            // ✅ FIX: force update button state after clearing input
+            sendBtn.disabled = true;
+        });
+
+        chatSocket.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            switch (data.type) {
+                case "history":
+                    messagesDiv.innerHTML = "";
+                    data.messages.forEach(msg => appendMessage(msg));
+                    scrollToBottom();
+                    break;
+                case "message":
+                    appendMessage(data);
+                    scrollToBottom();
+                    break;
+                case "read_receipt":
+                    if (data.read_by_uid !== MY_UID) updateAllTicks();
+                    break;
+                case "unread_count":
+                    updateUnreadBadge(data.count);
+                    break;
+                case "deleted":
+                    removeMessageFromDOM(data.message_id);
+                    break;
+            }
+        };
+
+        const updateAllTicks = () => {
+            document.querySelectorAll(".check-status").forEach(span => span.textContent = "✓✓");
+        };
+
+        const updateUnreadBadge = count => {
+            if (count > 0) {
+                unreadBadge.textContent = count > 99 ? "99+" : count;
+                unreadBadge.style.display = "inline-block";
+            } else {
+                unreadBadge.style.display = "none";
+            }
+        };
+
+        const requestDeleteMessage = (messageId) => {
+            if (confirm("Delete this message?") && chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(JSON.stringify({ type: "delete", message_id: messageId }));
+            }
+        };
+
+        const removeMessageFromDOM = (messageId) => {
+            const wrapper = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (wrapper) wrapper.remove();
+        };
+
+        const formatTimestamp = (iso) => {
+            const date = new Date(iso);
+            const now = new Date();
+            const options = { hour: "2-digit", minute: "2-digit" };
+            const time = date.toLocaleTimeString([], options);
+            if (date.toDateString() === now.toDateString()) return time;
+            return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} · ${time}`;
+        };
+
+        const appendMessage = (msg) => {
+            const isMine = msg.sender_uid === MY_UID;
+
+            const wrapper = document.createElement("div");
+            wrapper.className = `message-wrapper ${isMine ? "sent" : "received"}`;
+            wrapper.dataset.messageId = msg.message_id;
+
+            if (isMine) {
+                const delBtn = document.createElement("button");
+                delBtn.className = "delete-btn";
+                delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                delBtn.onclick = () => requestDeleteMessage(msg.message_id);
+                wrapper.appendChild(delBtn);
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = "message";
+            bubble.appendChild(document.createTextNode(msg.content));
+
+            const ts = document.createElement("span");
+            ts.className = "msg-timestamp";
+            ts.textContent = formatTimestamp(msg.timestamp);
+            bubble.appendChild(ts);
+
+            if (isMine) {
+                const tick = document.createElement("span");
+                tick.className = "check-status";
+                tick.textContent = msg.is_read ? "✓✓" : "✓";
+                bubble.appendChild(tick);
+            }
+
+            wrapper.appendChild(bubble);
+            messagesDiv.appendChild(wrapper);
+        };
+
+        const scrollToBottom = () => messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        chatSocket.onerror = (e) => console.error("WebSocket error", e);
+        chatSocket.onclose = (e) => console.warn("WebSocket closed", e.code, e.reason);
+    </script>
+</body>
+
+</html>
