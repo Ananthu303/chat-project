@@ -142,7 +142,7 @@ venv/
 logs/
 
 # Staticfiles
-staticfiles/
+# staticfiles/
 firebase.json
 fb.json
 

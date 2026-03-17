@@ -2,4 +2,13 @@ from django.apps import AppConfig
 
 
 class ChatConfig(AppConfig):
-    name = 'chat'
+    name = "chat"
+
+    def ready(self):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        if not User.objects.filter(username="admin").exists():
+            User.objects.create_superuser(
+                username="admin", email="admin@gmail.com", password="Testpassword@123"
+            )
