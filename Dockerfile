@@ -11,3 +11,5 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 COPY . .
+
+CMD ["sh", "-c", "python manage.py migrate && daphne -b 0.0.0.0 -p $PORT chat_application.asgi:application"]
