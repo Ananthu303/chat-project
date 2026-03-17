@@ -185,7 +185,7 @@
         const MY_UID = "{{ request.user.uid }}";
         const OTHER_UID = "{{ other_user.uid }}";
         const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
-        const chatSocket = new WebSocket(`${ws_scheme}://${window.location.hostname}:8001/ws/chat/${OTHER_UID}/`);
+        const chatSocket = new WebSocket(`${ws_scheme}://${window.location.hostname}:8000/ws/chat/${OTHER_UID}/`);
 
         const messagesDiv = document.getElementById("messages");
         const inputField = document.getElementById("chat-input");

@@ -174,7 +174,7 @@
 <script>
     const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
     const userStatusSocket = new WebSocket(
-        ws_scheme + "://" + window.location.hostname + ":8001/ws/users/"
+        ws_scheme + "://" + window.location.hostname + ":8000/ws/users/"
     );
 
     userStatusSocket.onmessage = function (e) {
