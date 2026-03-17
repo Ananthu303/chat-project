@@ -181,143 +181,13 @@
         </form>
     </div>
 
-    <!-- <script>
-        const MY_UID = "{{ request.user.uid }}";
-        const OTHER_UID = "{{ other_user.uid }}";
-        const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
-        const chatSocket = new WebSocket(`${ws_scheme}://${window.location.hostname}:8000/ws/chat/${OTHER_UID}/`);
 
-        const messagesDiv = document.getElementById("messages");
-        const inputField = document.getElementById("chat-input");
-        const form = document.getElementById("chat-form");
-        const unreadBadge = document.getElementById("unread-badge");
-        const sendBtn = document.getElementById("send-btn");
-
-        // Disable initially
-        sendBtn.disabled = true;
-
-        // Input listener
-        inputField.addEventListener("input", () => {
-            const hasText = inputField.value.trim().length > 0;
-            sendBtn.disabled = !hasText;
-        });
-
-        // Send messages
-        form.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const message = inputField.value.trim();
-            if (!message) return;
-
-            chatSocket.send(JSON.stringify({ message }));
-            inputField.value = "";
-
-            // ✅ FIX: force update button state after clearing input
-            sendBtn.disabled = true;
-        });
-
-        chatSocket.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            switch (data.type) {
-                case "history":
-                    messagesDiv.innerHTML = "";
-                    data.messages.forEach(msg => appendMessage(msg));
-                    scrollToBottom();
-                    break;
-                case "message":
-                    appendMessage(data);
-                    scrollToBottom();
-                    break;
-                case "read_receipt":
-                    if (data.read_by_uid !== MY_UID) updateAllTicks();
-                    break;
-                case "unread_count":
-                    updateUnreadBadge(data.count);
-                    break;
-                case "deleted":
-                    removeMessageFromDOM(data.message_id);
-                    break;
-            }
-        };
-
-        const updateAllTicks = () => {
-            document.querySelectorAll(".check-status").forEach(span => span.textContent = "✓✓");
-        };
-
-        const updateUnreadBadge = count => {
-            if (count > 0) {
-                unreadBadge.textContent = count > 99 ? "99+" : count;
-                unreadBadge.style.display = "inline-block";
-            } else {
-                unreadBadge.style.display = "none";
-            }
-        };
-
-        const requestDeleteMessage = (messageId) => {
-            if (confirm("Delete this message?") && chatSocket.readyState === WebSocket.OPEN) {
-                chatSocket.send(JSON.stringify({ type: "delete", message_id: messageId }));
-            }
-        };
-
-        const removeMessageFromDOM = (messageId) => {
-            const wrapper = document.querySelector(`[data-message-id="${messageId}"]`);
-            if (wrapper) wrapper.remove();
-        };
-
-        const formatTimestamp = (iso) => {
-            const date = new Date(iso);
-            const now = new Date();
-            const options = { hour: "2-digit", minute: "2-digit" };
-            const time = date.toLocaleTimeString([], options);
-            if (date.toDateString() === now.toDateString()) return time;
-            return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} · ${time}`;
-        };
-
-        const appendMessage = (msg) => {
-            const isMine = msg.sender_uid === MY_UID;
-
-            const wrapper = document.createElement("div");
-            wrapper.className = `message-wrapper ${isMine ? "sent" : "received"}`;
-            wrapper.dataset.messageId = msg.message_id;
-
-            if (isMine) {
-                const delBtn = document.createElement("button");
-                delBtn.className = "delete-btn";
-                delBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-                delBtn.onclick = () => requestDeleteMessage(msg.message_id);
-                wrapper.appendChild(delBtn);
-            }
-
-            const bubble = document.createElement("div");
-            bubble.className = "message";
-            bubble.appendChild(document.createTextNode(msg.content));
-
-            const ts = document.createElement("span");
-            ts.className = "msg-timestamp";
-            ts.textContent = formatTimestamp(msg.timestamp);
-            bubble.appendChild(ts);
-
-            if (isMine) {
-                const tick = document.createElement("span");
-                tick.className = "check-status";
-                tick.textContent = msg.is_read ? "✓✓" : "✓";
-                bubble.appendChild(tick);
-            }
-
-            wrapper.appendChild(bubble);
-            messagesDiv.appendChild(wrapper);
-        };
-
-        const scrollToBottom = () => messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-        chatSocket.onerror = (e) => console.error("WebSocket error", e);
-        chatSocket.onclose = (e) => console.warn("WebSocket closed", e.code, e.reason);
-    </script> -->
 
     <script>
         const MY_UID = "{{ request.user.uid }}";
         const OTHER_UID = "{{ other_user.uid }}";
 
-        // Use secure WebSocket if HTTPS, and current host (no :8000) for production
+
         const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
         const chatSocket = new WebSocket(`${ws_scheme}://${window.location.host}/ws/chat/${OTHER_UID}/`);
 
@@ -327,7 +197,7 @@
         const unreadBadge = document.getElementById("unread-badge");
         const sendBtn = document.getElementById("send-btn");
 
-        // Disable send button initially
+
         sendBtn.disabled = true;
 
         // Enable/disable send button based on input
@@ -374,7 +244,7 @@
             setTimeout(() => location.reload(), 2000); // simple reconnect
         };
 
-        // Send message safely
+        // Send message 
         form.addEventListener("submit", (e) => {
             e.preventDefault();
             const message = inputField.value.trim();
