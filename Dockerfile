@@ -6,8 +6,11 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 COPY requirements.txt .
-
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 COPY . .
+
+# Apply migrations and start Daphne ASGI server
+CMD python manage.py migrate && \
+    daphne -b 0.0.0.0 -p 8000 chat_application.asgi:application
