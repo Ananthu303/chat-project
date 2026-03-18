@@ -161,7 +161,7 @@
                 </div>
             </li>
             {% empty %}
-            <li>No users found.</li>
+            <li id="no-users">No users found.</li>
             {% endfor %}
         </ul>
 
@@ -171,22 +171,52 @@
     </div>
 
 </body>
+
 <script>
     const ws_scheme = window.location.protocol === "https:" ? "wss" : "ws";
     const userStatusSocket = new WebSocket(
         ws_scheme + "://" + window.location.hostname + ":8000/ws/users/"
     );
 
-    userStatusSocket.onmessage = function (e) {
-        const data = JSON.parse(e.data);
-        const uid = data.uid;
-        const isOnline = data.is_online;
+    const userList = document.querySelector(".user-list");
 
-        const statusBadge = document.querySelector(`#status-${uid}`);
-        if (statusBadge) {
-            statusBadge.textContent = isOnline ? "Online" : "Offline";
-            statusBadge.classList.toggle("online", isOnline);
-            statusBadge.classList.toggle("offline", !isOnline);
+    function renderUser(user) {
+        const noUsers = document.getElementById("no-users");
+        if (noUsers) noUsers.remove();
+
+        let existing = document.querySelector(`#status-${user.uid}`);
+        if (existing) {
+            existing.textContent = user.is_online ? "Online" : "Offline";
+            existing.classList.toggle("online", user.is_online);
+            existing.classList.toggle("offline", !user.is_online);
+        } else {
+            const li = document.createElement("li");
+            li.classList.add("user-item");
+            li.innerHTML = `
+            <div class="user-info">
+                <div class="user-avatar">${user.username.charAt(0).toUpperCase()}</div>
+                <div class="username">${user.username}</div>
+            </div>
+            <div class="user-actions">
+                <span id="status-${user.uid}" class="status ${user.is_online ? 'online' : 'offline'}">
+                    ${user.is_online ? 'Online' : 'Offline'}
+                </span>
+                <a href="/chat/${user.uid}/">
+                    <button class="chat-btn"><i class="fas fa-comment"></i> Chat</button>
+                </a>
+            </div>
+        `;
+            userList.appendChild(li);
+        }
+    }
+
+    userStatusSocket.onmessage = function (e) {
+        const message = JSON.parse(e.data);
+
+        if (message.type === "user_list") {
+            message.users.forEach(user => renderUser(user));
+        } else if (message.type === "status_update") {
+            renderUser(message.data);
         }
     };
 </script>

@@ -23,8 +23,24 @@ class RegisterView(View):
     def post(self, request):
         form = RegisterForm(request.POST)
         if form.is_valid():
-            form.save()
+            new_user = form.save(commit=False)
+            new_user.is_online = False
+            new_user.save()
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "user_status",
+                {
+                    "type": "user_status_update",
+                    "data": {
+                        "uid": new_user.uid,
+                        "username": new_user.username,
+                        "is_online": new_user.is_online,
+                    },
+                },
+            )
+
             return redirect("login")
+
         return render(request, self.template_name, {"form": form})
 
 
