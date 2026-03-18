@@ -1,7 +1,14 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from django.db.models import Q
 from uuid import UUID
+
+
+def uuid_to_str(obj):
+    if isinstance(obj, UUID):
+        return str(obj)
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
 class UserStatusConsumer(AsyncWebsocketConsumer):
@@ -10,10 +17,11 @@ class UserStatusConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
 
+        # Fetch users asynchronously
         users = await self.get_all_users()
         await self.send(
             text_data=json.dumps(
-                {"type": "user_list", "users": users}, default=self.uuid_to_str
+                {"type": "user_list", "users": users}, default=uuid_to_str
             )
         )
 
@@ -26,28 +34,25 @@ class UserStatusConsumer(AsyncWebsocketConsumer):
     async def user_status_update(self, event):
         await self.send(
             text_data=json.dumps(
-                {"type": "status_update", "data": event["data"]},
-                default=self.uuid_to_str,
+                {"type": "status_update", "data": event["data"]}, default=uuid_to_str
             )
         )
 
     @database_sync_to_async
     def get_all_users(self):
+        """Fetch all non-self users of type USER in a thread-safe way."""
         from django.contrib.auth import get_user_model
 
         User = get_user_model()
         current_user = self.scope["user"]
+
         users_qs = (
             User.objects.filter(user_type=User.UserType.USER)
             .exclude(id=current_user.id)
             .values("uid", "username", "is_online")
         )
-        return list(users_qs)
 
-    def uuid_to_str(obj):
-        if isinstance(obj, UUID):
-            return str(obj)
-        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+        return list(users_qs)
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -157,6 +162,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     def generate_room_name(self, uid1: str, uid2: str) -> str:
+        """Generate a consistent chat room name for two users."""
         return "_".join(sorted([uid1, uid2]))
 
     @database_sync_to_async
@@ -177,11 +183,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from .models import Message
 
         other_user = get_user_model().objects.get(uid=self.other_user_uid)
-        messages = (
+        messages_qs = (
             Message.objects.select_related("sender", "receiver")
             .filter(
-                sender__in=[self.user, other_user],
-                receiver__in=[self.user, other_user],
+                Q(sender=self.user, receiver=other_user)
+                | Q(sender=other_user, receiver=self.user)
             )
             .order_by("timestamp")
         )
@@ -194,7 +200,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "timestamp": msg.timestamp.isoformat(),
                 "is_read": msg.is_read,
             }
-            for msg in messages
+            for msg in messages_qs
         ]
 
     @database_sync_to_async

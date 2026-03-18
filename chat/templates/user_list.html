@@ -212,6 +212,7 @@
 
     userStatusSocket.onmessage = function (e) {
         const message = JSON.parse(e.data);
+        console.log(message,'<<<=========message==========>>>')
 
         if (message.type === "user_list") {
             message.users.forEach(user => renderUser(user));
